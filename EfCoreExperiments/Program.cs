@@ -22,8 +22,9 @@ namespace EfCoreExperiments
 
             try
             {
-                await StoreGiftCard();
-                await UpdateData();
+                await StoreGiftCards();
+              //  await UpdateEntityLoadedInSameContext();
+                await UpdateEntityLoadedInDifferentContext();
             }
             catch (Exception ex)
             {
@@ -32,13 +33,13 @@ namespace EfCoreExperiments
         }
 
 
-        static async Task StoreGiftCard()
+        static async Task StoreGiftCards()
         {
             var giftCards = new List<GiftCard>
             {
-                new GiftCard(Guid.NewGuid(), "Tesco", ExpirationDate.Create(DateTime.MaxValue).Value),
-                new GiftCard(Guid.Parse(AppleCardId), "Apple", ExpirationDate.Create(DateTime.MaxValue).Value),
-                new GiftCard(Guid.NewGuid(), "Marks And Spencer", ExpirationDate.Create(DateTime.MaxValue).Value)
+                new GiftCard(Guid.NewGuid(), "Tesco", ExpirationDate.Create(DateTime.MinValue).Value),
+                new GiftCard(Guid.Parse(AppleCardId), "Apple", ExpirationDate.Create(DateTime.MinValue).Value),
+                new GiftCard(Guid.NewGuid(), "Marks And Spencer", ExpirationDate.Create(DateTime.MinValue).Value)
             };
 
             using (var context = new PersistenceContext())
@@ -48,8 +49,23 @@ namespace EfCoreExperiments
             }
         }
 
+        static async Task UpdateEntityLoadedInDifferentContext()
+        {
+            using (var context = new PersistenceContext())
+            {
+                var appleCard = await FindGiftCardById(Guid.Parse(AppleCardId));
+                appleCard.SetProviderName("Apple Store Gift Card");
+                context.Attach(appleCard);
+                context.Entry(appleCard.ExpiryDate).State = EntityState.Detached;
+                appleCard.SetExpirationDate(ExpirationDate.Create(DateTime.UtcNow.AddMonths(2)).Value);
+                context.Entry(appleCard.ExpiryDate).State = EntityState.Modified;
+                context.Entry(appleCard).State = EntityState.Modified;
 
-        static async Task UpdateData()
+                await context.SaveChanges();
+            }
+        }
+
+        static async Task UpdateEntityLoadedInSameContext()
         {
             using (var context = new PersistenceContext())
             {
